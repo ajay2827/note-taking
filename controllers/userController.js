@@ -59,21 +59,3 @@ exports.userLogin = asyncWrapper(async (req, res, next) => {
   const token = generatetoken(user._id);
   res.status(200).json({ user, token });
 });
-
-// get current user
-exports.getCurruser = asyncWrapper(async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next(createCustomError(`No token provided`, 401));
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
-    res.status(200).json(user);
-  } catch (error) {
-    return next(createCustomError(`Not authorized to access this route`, 401));
-  }
-});

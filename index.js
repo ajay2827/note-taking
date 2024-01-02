@@ -17,6 +17,19 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // parse application/json
 app.use(bodyParser.json());
 
+// requiring routers
+const userRoute = require('./routes/userRoute');
+const noteRoute = require('./routes/noteRoute');
+
+// using routers
+app.use('/api/v1/user', userRoute);
+app.use('/api/v1/notes', noteRoute);
+
+// middleware
+app.use(express.json({ limit: '20mb' }));
+app.use(notFoundMiddleware);
+app.use(errorHandlerMiddleware);
+
 // starting server
 const port = process.env.PORT || 5000;
 

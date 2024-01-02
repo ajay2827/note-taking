@@ -5,7 +5,7 @@ const notesSchema = new moongoose.Schema(
     title: {
       type: String,
       require: [true, 'must provide title'],
-      maxlength: [8, 'title can not be more than 8 characters'],
+      maxlength: [20, 'title can not be more than 8 characters'],
       minlength: [2, 'title can not be less than 2 characters'],
     },
     description: {
