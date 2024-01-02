@@ -17,6 +17,10 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // parse application/json
 app.use(bodyParser.json());
 
+app.get('/', (req, res) => {
+  res.send('Welcome to my Express application!');
+});
+
 // requiring routers
 const userRoute = require('./routes/userRoute');
 const noteRoute = require('./routes/noteRoute');
