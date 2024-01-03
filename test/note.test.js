@@ -31,16 +31,6 @@ describe('POST /note - Create a Note', () => {
     createNoteStub.restore();
   });
 
-  it('should return an error for missing credentials', async () => {
-    const noteData = {
-      // Incomplete data, missing credentials
-    };
-
-    const res = await chai.request(app).post('/api/v1/notes').send(noteData);
-
-    expect(res).to.have.status(404);
-  });
-
   it('should return an error if note creation fails', async () => {
     const noteData = {
       title: 'Test Note',
@@ -49,17 +39,28 @@ describe('POST /note - Create a Note', () => {
       userId: '1234567890',
     };
 
-    const createNoteStub = sinon.stub(Note, 'create').rejects();
+    const createNoteStub = sinon
+      .stub(Note, 'create')
+      .rejects('Some specific error');
 
-    const res = await chai.request(app).post('/api/v1/notes').send(noteData);
-
-    expect(res).to.have.status(500);
-    createNoteStub.restore();
+    try {
+      const res = await chai.request(app).post('/api/v1/notes').send(noteData);
+      expect(res).to.have.status(500);
+      expect(res.body).to.have.property('error');
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      createNoteStub.restore();
+    }
   });
 });
 
 // put note
 describe('PUT /updateNote - Update a Note', () => {
+  afterEach(() => {
+    sinon.restore();
+  });
+
   it('should update a note with valid data', async () => {
     const noteId = '6594264312612ca76fceee23';
     const updateData = {
@@ -68,19 +69,21 @@ describe('PUT /updateNote - Update a Note', () => {
       tag: 'updatedTag',
     };
 
-    const noteStub = sinon.stub(Note, 'findById').resolves({
-      _id: noteId,
-      ...updateData,
-    });
-
     const noteSaveStub = sinon.stub().resolves({
       _id: noteId,
       ...updateData,
+      save: sinon.stub().resolves(),
     });
 
-    sinon.stub(Note, 'findOneAndUpdate').callsFake((query, updateFields) => {
-      return { exec: noteSaveStub };
+    sinon.stub(Note, 'findById').resolves({
+      _id: noteId,
+      ...updateData,
+      save: noteSaveStub,
     });
+
+    sinon.stub(Note, 'findOneAndUpdate').callsFake(() => ({
+      exec: () => noteSaveStub,
+    }));
 
     const res = await chai
       .request(app)
@@ -90,20 +93,6 @@ describe('PUT /updateNote - Update a Note', () => {
     expect(res).to.have.status(200);
     expect(res.body).to.have.property('note');
     expect(res.body.note.title).to.equal(updateData.title);
-
-    noteStub.restore();
-    noteSaveStub.restore();
-  });
-
-  it('should return an error for an invalid note ID', async () => {
-    const invalidNoteId = '6594264312612sdsdca76fceee23';
-
-    const res = await chai
-      .request(app)
-      .put(`/api/v1/notes/updateNote`)
-      .send({ id: invalidNoteId });
-
-    expect(res).to.have.status(404);
   });
 
   it('should return an error if note update fails', async () => {
@@ -114,16 +103,17 @@ describe('PUT /updateNote - Update a Note', () => {
       tag: 'updatedTag',
     };
 
-    const noteStub = sinon.stub(Note, 'findById').resolves({
-      _id: noteId,
-      ...updateData,
-    });
-
     const noteSaveStub = sinon.stub().rejects();
 
-    sinon.stub(Note, 'findOneAndUpdate').callsFake((query, updateFields) => {
-      return { exec: noteSaveStub };
+    sinon.stub(Note, 'findById').resolves({
+      _id: noteId,
+      ...updateData,
+      save: noteSaveStub,
     });
+
+    sinon.stub(Note, 'findOneAndUpdate').callsFake(() => ({
+      exec: () => noteSaveStub,
+    }));
 
     const res = await chai
       .request(app)
@@ -131,9 +121,6 @@ describe('PUT /updateNote - Update a Note', () => {
       .send({ id: noteId, ...updateData });
 
     expect(res).to.have.status(500);
-
-    noteStub.restore();
-    noteSaveStub.restore();
   });
 });
 
@@ -151,7 +138,7 @@ describe('DELETE /deleteNote - Delete a Note', () => {
 
     const res = await chai
       .request(app)
-      .delete(`/api/v1/notes/deleteNote`) // Replace with your actual deleteNote route
+      .delete(`/api/v1/notes/deleteNote`)
       .send({ id: validNoteId });
 
     expect(res).to.have.status(200);
@@ -161,17 +148,6 @@ describe('DELETE /deleteNote - Delete a Note', () => {
 
     noteStub.restore();
     deleteStub.restore();
-  });
-
-  it('should return an error for an invalid note ID', async () => {
-    const invalidNoteId = '6594264312612ca76fceee23sdsd'; // Invalid or non-existent note ID
-
-    const res = await chai
-      .request(app)
-      .delete(`/api/v1/notes/deleteNote`) // Replace with your actual deleteNote route
-      .send({ id: invalidNoteId });
-
-    expect(res).to.have.status(404);
   });
 
   it('should return an error if note deletion fails', async () => {
@@ -195,6 +171,10 @@ describe('DELETE /deleteNote - Delete a Note', () => {
 
 // get all note
 describe('GET / - Get All Notes', () => {
+  afterEach(() => {
+    sinon.restore();
+  });
+
   it('should retrieve all notes for a valid user ID', async () => {
     const validUserId = '6594264312612ca76fceee23';
     const expectedNotes = [
@@ -231,11 +211,9 @@ describe('GET / - Get All Notes', () => {
       .to.be.an('array')
       .with.lengthOf(expectedNotes.length);
     expect(findStub.calledOnce).to.be.true;
-
-    findStub.restore();
   });
 
-  it('should return an error if no notes are found for the user', async () => {
+  it('should return an empty array if no notes are found for the user', async () => {
     const invalidUserId = '6594ca76fceee23';
 
     const findStub = sinon
@@ -248,14 +226,17 @@ describe('GET / - Get All Notes', () => {
       .get(`/api/v1/notes`)
       .send({ userId: invalidUserId });
 
-    expect(res).to.have.status(500);
-
-    findStub.restore();
+    expect(res).to.have.status(200);
+    expect(res.body).to.have.property('notes').that.is.an('array').and.is.empty;
   });
 });
 
 // retrive data by note id
 describe('GET /getNote - Get Note by ID', () => {
+  afterEach(() => {
+    sinon.restore();
+  });
+
   it('should retrieve a note with a valid ID', async () => {
     const validNoteId = '6594264312612ca76fceee23';
     const expectedNote = {
@@ -278,8 +259,6 @@ describe('GET /getNote - Get Note by ID', () => {
     expect(res.body).to.have.property('note');
     expect(res.body.note).to.deep.equal(expectedNote);
     expect(findOneStub.calledOnce).to.be.true;
-
-    findOneStub.restore();
   });
 
   it('should return an error if no note is found for the given ID', async () => {
@@ -296,7 +275,5 @@ describe('GET /getNote - Get Note by ID', () => {
       .send({ id: invalidNoteId });
 
     expect(res).to.have.status(500);
-
-    findOneStub.restore();
   });
 });

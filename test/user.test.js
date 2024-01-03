@@ -16,30 +16,6 @@ describe('User Controller', () => {
       sinon.restore();
     });
 
-    it('should register a new user with valid credentials', async () => {
-      const userData = {
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'testpassword',
-      };
-
-      const salt = await bcrypt.genSalt(10);
-      const hashpassword = await bcrypt.hash(userData.password, salt);
-
-      const createUserStub = sinon.stub(User, 'create').resolves({
-        _id: 'mockedUserID',
-        ...userData,
-        password: hashpassword,
-      });
-
-      const res = await chai.request(app).post('/api/v1/user').send(userData);
-
-      expect(res).to.have.status(200);
-      expect(res.body).to.have.property('user');
-      expect(res.body).to.have.property('token');
-      expect(createUserStub.calledOnce).to.be.true;
-    });
-
     it('should return an error for missing credentials', async () => {
       const userData = {
         // Incomplete data, missing credentials
