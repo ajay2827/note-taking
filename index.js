@@ -18,7 +18,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 app.get('/', (req, res) => {
-  res.send('Welcome to my Express application!');
+  res.send(`Welcome to my Note-Taking APi!`);
 });
 
 // requiring routers
